@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Magic Christmas - AI Edition</title>
     
     <!-- Google Fonts -->
@@ -25,6 +25,7 @@
             font-family: var(--font-display);
             color: var(--c-gold);
             user-select: none;
+            -webkit-tap-highlight-color: transparent; /* 移除手机点击高亮 */
         }
 
         /* --- UI Overlay --- */
@@ -36,9 +37,16 @@
             height: 100%;
             pointer-events: none;
             z-index: 10;
-            transition: opacity 0.8s ease;
+            transition: opacity 0.5s ease;
+            opacity: 0; /* 初始隐藏，点击开始后显示 */
         }
 
+        /* 显示状态 */
+        .ui-visible {
+            opacity: 1 !important;
+        }
+
+        /* 隐藏状态 (用于H键或手机按钮) */
         .ui-hidden {
             opacity: 0 !important;
             pointer-events: none !important;
@@ -47,7 +55,7 @@
         /* Header */
         header {
             position: absolute;
-            top: 40px;
+            top: 8%;
             width: 100%;
             text-align: center;
         }
@@ -74,7 +82,7 @@
         /* Controls */
         .controls-wrapper {
             position: absolute;
-            bottom: 60px;
+            bottom: 12%;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -105,50 +113,56 @@
             gap: 10px;
         }
 
-        .glass-btn:hover {
-            background: rgba(212, 175, 55, 0.15);
-            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
-            border-color: var(--c-gold);
-            transform: translateY(-2px);
-        }
-
-        .glass-btn::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: 0.5s;
-        }
-
-        .glass-btn:hover::after {
-            left: 100%;
-        }
-
         input[type="file"] { display: none; }
 
         .hint {
             font-size: 10px;
             color: rgba(255, 255, 255, 0.4);
             letter-spacing: 1px;
+            text-shadow: 0 0 5px #000;
         }
 
-        /* Music Toggle */
+        /* Music Toggle (Top Right) */
         #music-toggle {
             position: absolute;
-            top: 40px;
-            right: 40px;
+            top: 30px;
+            right: 30px;
             width: 40px;
             height: 40px;
             border-radius: 50%;
             padding: 0;
             pointer-events: auto;
-            display: flex; /* Added for centering icon */
+            display: flex;
             justify-content: center;
             align-items: center;
             font-size: 20px;
+            z-index: 20;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--c-gold);
+            color: var(--c-gold);
+            backdrop-filter: blur(5px);
+        }
+
+        /* [NEW] Mobile Hide UI Toggle (Top Right, below music) */
+        #ui-toggle-btn {
+            position: absolute;
+            top: 80px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            padding: 0;
+            pointer-events: auto;
+            display: none; /* 初始隐藏，开始后显示 */
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            z-index: 20;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--c-gold);
+            color: var(--c-gold);
+            backdrop-filter: blur(5px);
+            cursor: pointer;
         }
 
         /* --- Loader / Start Screen --- */
@@ -158,7 +172,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #000;
+            background: radial-gradient(circle, #1a0b2e 0%, #000000 100%);
             z-index: 999;
             display: flex;
             flex-direction: column;
@@ -183,18 +197,32 @@
             transition: opacity 0.5s ease;
         }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* [NEW] Producer Credit */
+        .producer-credit {
+            margin-top: 40px;
+            font-size: 12px;
+            color: var(--c-gold);
+            letter-spacing: 2px;
+            opacity: 0.8;
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            animation: fadeIn 3s ease;
+        }
 
-        /* --- Webcam Monitor (Hidden Logic) --- */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 0.8; } }
+
+        /* --- Webcam Monitor --- */
         #cv-debug {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 120px;
+            width: 100px;
             opacity: 0; /* Set to 1 to debug */
             pointer-events: none;
             z-index: 100;
-            mix-blend-mode: screen;
+            border-radius: 8px;
+            transform: scaleX(-1);
         }
     </style>
 
@@ -210,10 +238,7 @@
 </head>
 <body>
 
-    <!-- 
-        【关键修改】: 这里改成了加载本地的 music.mp3
-        请确保您的文件夹里有一个叫 music.mp3 的文件，和这个 index.html 在一起
-    -->
+    <!-- 本地音乐文件 -->
     <audio id="bgm" loop preload="auto">
         <source src="./music.mp3" type="audio/mpeg">
     </audio>
@@ -221,33 +246,41 @@
     <!-- Start / Loader Screen -->
     <div id="start-screen">
         <div class="loader-ring"></div>
-        <div id="loading-text" style="color:var(--c-gold); letter-spacing: 3px; font-size: 12px;">LOADING MAGIC...</div>
+        <div id="loading-text" style="color:var(--c-gold); letter-spacing: 3px; font-size: 12px;">LOADING HOLIDAY MAGIC...</div>
+        
         <button id="start-btn" class="glass-btn">
             ENTER THE MAGIC
         </button>
+
+        <!-- [NEW] 制作人署名 -->
+        <div class="producer-credit">制作人：Steven Yang 2025.12.13</div>
     </div>
 
-    <!-- Main UI -->
+    <!-- UI Layer -->
     <div id="ui-layer">
         <header>
             <h1>Merry Christmas</h1>
             <div class="subtitle">AI POWERED INTERACTIVE GREETING</div>
         </header>
 
-        <button id="music-toggle" class="glass-btn">♫</button>
-
         <div class="controls-wrapper">
             <label class="glass-btn">
-                <span>+ ADD MEMORIES</span>
+                <span>📷 ADD MEMORIES</span>
                 <input type="file" id="imageInput" accept="image/*">
             </label>
-            <div class="hint">PRESS 'H' TO HIDE UI | GESTURES: PINCH, FIST, OPEN</div>
+            <div class="hint">Tap Eye Icon to Hide Controls</div>
         </div>
     </div>
 
+    <!-- Music Toggle -->
+    <button id="music-toggle" class="glass-btn" style="padding:0; width:40px; height:40px;">♫</button>
+    
+    <!-- [NEW] Mobile Hide UI Button -->
+    <button id="ui-toggle-btn" title="Hide/Show UI">👁️</button>
+
     <!-- CV Container -->
     <div id="cv-debug">
-        <video id="webcam" style="width:100%;" autoplay playsinline muted></video>
+        <video id="webcam" style="width:100%; border-radius:8px;" autoplay playsinline muted></video>
     </div>
 
     <script type="module">
@@ -266,8 +299,8 @@
                 red: 0x8a0b0b,
                 green: 0x0b3815
             },
-            particleCount: 1800,
-            dustCount: 3000
+            particleCount: 1800, // Reduced slightly for mobile performance safety
+            dustCount: 2500
         };
 
         // --- STATE MANAGEMENT ---
@@ -281,30 +314,53 @@
 
         // --- AUDIO SYSTEM ---
         const audio = document.getElementById('bgm');
-        audio.volume = 0.6; // 设置音量
+        audio.volume = 0.6;
 
         document.getElementById('music-toggle').addEventListener('click', () => {
+            const btn = document.getElementById('music-toggle');
             if(audio.paused) {
                 audio.play();
-                document.getElementById('music-toggle').style.opacity = '1';
-                document.getElementById('music-toggle').innerText = "♫";
+                btn.style.opacity = '1';
+                btn.innerHTML = "♫";
             } else {
                 audio.pause();
-                document.getElementById('music-toggle').style.opacity = '0.5';
-                document.getElementById('music-toggle').innerText = "🔇";
+                btn.style.opacity = '0.5';
+                btn.innerHTML = "🔇";
+            }
+        });
+
+        // --- [NEW] MOBILE UI TOGGLE ---
+        const uiToggleBtn = document.getElementById('ui-toggle-btn');
+        const uiLayer = document.getElementById('ui-layer');
+        
+        uiToggleBtn.addEventListener('click', () => {
+            if (uiLayer.classList.contains('ui-visible')) {
+                uiLayer.classList.remove('ui-visible');
+                uiLayer.classList.add('ui-hidden');
+                uiToggleBtn.innerHTML = "🙈"; // Closed eyes
+                uiToggleBtn.style.opacity = "0.5";
+            } else {
+                uiLayer.classList.remove('ui-hidden');
+                uiLayer.classList.add('ui-visible');
+                uiToggleBtn.innerHTML = "👁️"; // Open eyes
+                uiToggleBtn.style.opacity = "1";
+            }
+        });
+
+        // Keep 'H' key for desktop
+        window.addEventListener('keydown', (e) => {
+            if(e.key.toLowerCase() === 'h') {
+                uiToggleBtn.click();
             }
         });
 
         // --- ASSET GENERATION ---
-        
-        // 1. Procedural Candy Cane Texture
         function createCandyTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 128; canvas.height = 128;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#fff'; ctx.fillRect(0,0,128,128);
             ctx.fillStyle = '#cc0000';
-            
             for(let i=-128; i<256; i+=32) {
                 ctx.beginPath();
                 ctx.moveTo(i, 0); ctx.lineTo(i+16, 0);
@@ -317,34 +373,6 @@
             return tex;
         }
 
-        // 2. Default Photo Texture
-        function createDefaultPhoto() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 640;
-            const ctx = canvas.getContext('2d');
-            
-            // Polarid style
-            ctx.fillStyle = '#f0f0f0';
-            ctx.fillRect(0,0,512,640);
-            ctx.fillStyle = '#111';
-            ctx.fillRect(40, 40, 432, 432);
-            
-            // Text
-            ctx.fillStyle = '#d4af37';
-            ctx.font = '700 40px Cinzel';
-            ctx.textAlign = 'center';
-            ctx.fillText("JOYEUX NOËL", 256, 560);
-            
-            // Gold Border
-            ctx.strokeStyle = '#d4af37';
-            ctx.lineWidth = 10;
-            ctx.strokeRect(5,5,502,630);
-
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.colorSpace = THREE.SRGBColorSpace;
-            return tex;
-        }
-
         // --- PARTICLE CLASS ---
         class Particle {
             constructor(mesh, index, total) {
@@ -352,40 +380,30 @@
                 this.index = index;
                 this.total = total;
                 this.baseScale = mesh.scale.x;
-                
-                this.velocity = new THREE.Vector3(
-                    (Math.random()-0.5)*0.02,
-                    (Math.random()-0.5)*0.02,
-                    (Math.random()-0.5)*0.02
-                );
-                
+                this.velocity = new THREE.Vector3((Math.random()-0.5)*0.02, (Math.random()-0.5)*0.02, (Math.random()-0.5)*0.02);
                 this.targetPos = new THREE.Vector3();
                 this.targetRot = new THREE.Euler();
                 this.targetScale = new THREE.Vector3(1,1,1);
-                
-                // Random phase for breathing animation
                 this.phase = Math.random() * Math.PI * 2;
-                
-                // Initial placement
                 this.mesh.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100);
             }
 
             update(mode, time) {
-                // Logic per mode
-                if (mode === 'TREE') {
-                    this.calculateTree(time);
-                } else if (mode === 'SCATTER') {
-                    this.calculateScatter(time);
-                } else if (mode === 'FOCUS') {
-                    this.calculateFocus(time);
-                }
+                if (mode === 'TREE') this.calculateTree(time);
+                else if (mode === 'SCATTER') this.calculateScatter(time);
+                else if (mode === 'FOCUS') this.calculateFocus(time);
 
-                // Physics: Smooth dampening
                 this.mesh.position.lerp(this.targetPos, 0.04);
                 
-                const currentQ = new THREE.Quaternion().setFromEuler(this.mesh.rotation);
-                const targetQ = new THREE.Quaternion().setFromEuler(this.targetRot);
-                this.mesh.rotation.setFromQuaternion(currentQ.slerp(targetQ, 0.05));
+                // Rotation handling
+                if (mode === 'FOCUS' && this.mesh === STATE.targetPhoto) {
+                    // [NEW] Photo always faces camera in focus mode
+                    this.mesh.lookAt(camera.position); 
+                } else {
+                    const currentQ = new THREE.Quaternion().setFromEuler(this.mesh.rotation);
+                    const targetQ = new THREE.Quaternion().setFromEuler(this.targetRot);
+                    this.mesh.rotation.setFromQuaternion(currentQ.slerp(targetQ, 0.05));
+                }
                 
                 this.mesh.scale.lerp(this.targetScale, 0.05);
             }
@@ -394,21 +412,10 @@
                 const h = 45;
                 const iNorm = this.index / this.total;
                 const y = -20 + iNorm * h;
-                
-                // Cone shape
                 const radius = 18 * (1 - iNorm); 
-                const angle = this.index * 0.8 + time * 0.1; // Slowly rotate the whole tree structure logic
-
-                // Add "Breathing" movement
+                const angle = this.index * 0.8 + time * 0.1;
                 const bob = Math.sin(time * 2 + this.phase) * 0.5;
-
-                this.targetPos.set(
-                    Math.cos(angle) * radius,
-                    y + bob, 
-                    Math.sin(angle) * radius
-                );
-
-                // Face outward
+                this.targetPos.set(Math.cos(angle)*radius, y+bob, Math.sin(angle)*radius);
                 this.targetRot.set(0, -angle, 0);
                 this.targetScale.setScalar(this.baseScale);
             }
@@ -418,21 +425,12 @@
                     const r = 15 + Math.random() * 25;
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
-                    this.scatterOrigin = new THREE.Vector3(
-                        r * Math.sin(phi) * Math.cos(theta),
-                        r * Math.sin(phi) * Math.sin(theta),
-                        r * Math.cos(phi)
-                    );
+                    this.scatterOrigin = new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
                 }
-                
-                // Orbiting effect
                 const orbitSpeed = 0.2;
                 const x = this.scatterOrigin.x * Math.cos(time * orbitSpeed) - this.scatterOrigin.z * Math.sin(time * orbitSpeed);
                 const z = this.scatterOrigin.x * Math.sin(time * orbitSpeed) + this.scatterOrigin.z * Math.cos(time * orbitSpeed);
-                
                 this.targetPos.set(x, this.scatterOrigin.y + Math.sin(time + this.index)*2, z);
-                
-                // Free rotation
                 this.targetRot.x += 0.01;
                 this.targetRot.y += 0.01;
                 this.targetScale.setScalar(this.baseScale);
@@ -440,24 +438,20 @@
 
             calculateFocus() {
                 if (this.mesh.userData.isPhoto && this.mesh === STATE.targetPhoto) {
-                    // Center stage
-                    this.targetPos.set(0, 2, 32); 
-                    this.targetRot.set(0, 0, Math.sin(performance.now()*0.001)*0.05); // Slight sway
-                    this.targetScale.setScalar(5.5);
+                    this.targetPos.set(0, 0, 40); // Move closer to camera
+                    this.targetScale.setScalar(4.0); // Make bigger
                 } else {
-                    // Push away to form a tunnel background
-                    this.calculateTree(0); // Base tree position
-                    this.targetPos.multiplyScalar(2.5); // Explode outwards
+                    this.calculateTree(0);
+                    this.targetPos.multiplyScalar(2.5);
                     this.targetPos.z -= 20;
-                    this.targetScale.setScalar(0.1); // Shrink
+                    this.targetScale.setScalar(0.1);
                 }
             }
         }
 
-        // --- MAIN SCENE SETUP ---
+        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.015); // Add depth fog
-
+        scene.fog = new THREE.FogExp2(0x000000, 0.015);
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
         camera.position.set(0, 0, 60);
 
@@ -468,124 +462,79 @@
         renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
 
-        // --- LIGHTING & ENVIRONMENT ---
+        // Lighting
         const pmremGenerator = new THREE.PMREMGenerator(renderer);
         scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-
-        const ambient = new THREE.AmbientLight(0xffffff, 0.2);
-        scene.add(ambient);
-
-        // Magical Core Light
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2));
         const coreLight = new THREE.PointLight(CONFIG.colors.gold, 2, 60);
-        coreLight.position.set(0, 0, 0);
         scene.add(coreLight);
+        const spot1 = new THREE.SpotLight(0xffaa00, 800); spot1.position.set(40, 50, 40); scene.add(spot1);
+        const spot2 = new THREE.SpotLight(0x4444ff, 500); spot2.position.set(-40, 20, -40); scene.add(spot2);
 
-        // Spotlights for dramatic shadows
-        const spot1 = new THREE.SpotLight(0xffaa00, 800);
-        spot1.position.set(40, 50, 40);
-        spot1.angle = 0.6;
-        spot1.penumbra = 1;
-        scene.add(spot1);
-
-        const spot2 = new THREE.SpotLight(0x4444ff, 500); // Cold rim light
-        spot2.position.set(-40, 20, -40);
-        scene.add(spot2);
-
-        // --- POST PROCESSING (BLOOM) ---
+        // Post Processing
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloom.strength = 1.2; // Intense bloom like the video
-        bloom.radius = 0.5;
-        bloom.threshold = 0.2;
+        bloom.strength = 1.2; bloom.radius = 0.5; bloom.threshold = 0.2;
         composer.addPass(bloom);
 
-        // --- OBJECTS ---
+        // Objects
         const mainGroup = new THREE.Group();
         scene.add(mainGroup);
-
         const particles = [];
         const photos = [];
 
-        // Materials
-        const matGold = new THREE.MeshStandardMaterial({ 
-            color: CONFIG.colors.gold, metalness: 1, roughness: 0.15,
-            emissive: 0x443300, emissiveIntensity: 0.2
-        });
-        const matRed = new THREE.MeshPhysicalMaterial({ 
-            color: CONFIG.colors.red, metalness: 0.2, roughness: 0.1, clearcoat: 1.0 
-        });
+        const matGold = new THREE.MeshStandardMaterial({ color: CONFIG.colors.gold, metalness: 1, roughness: 0.15 });
+        const matRed = new THREE.MeshPhysicalMaterial({ color: CONFIG.colors.red, metalness: 0.2, roughness: 0.1 });
         const matCane = new THREE.MeshStandardMaterial({ map: createCandyTexture(), roughness: 0.3 });
-        
-        // Geometries
         const geoBox = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const geoSphere = new THREE.SphereGeometry(0.5, 32, 32);
-        
-        // Generate System
+
         function initParticles() {
-            // 1. Structural Particles
             for(let i=0; i<CONFIG.particleCount; i++) {
                 let mesh;
                 const r = Math.random();
-                
                 if (r < 0.05) {
-                    // Candy Canes (Rare)
-                    const curve = new THREE.CatmullRomCurve3([
-                        new THREE.Vector3(0,-1,0), new THREE.Vector3(0,1,0), 
-                        new THREE.Vector3(0.5,1.5,0), new THREE.Vector3(1,1.2,0)
-                    ]);
+                    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0,-1,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0.5,1.5,0), new THREE.Vector3(1,1.2,0)]);
                     mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.15, 8, false), matCane);
                     mesh.scale.setScalar(1.5);
-                } else if (r < 0.1) {
-                    // Placeholder Photos
-                    mesh = createPhotoMesh(createDefaultPhoto());
-                    mesh.userData.isPhoto = true;
-                    photos.push(mesh);
                 } else if (r < 0.6) {
-                    // Gold Ornaments
                     mesh = new THREE.Mesh(r < 0.35 ? geoBox : geoSphere, matGold);
                 } else {
-                    // Red/Glass Ornaments
                     mesh = new THREE.Mesh(geoSphere, matRed);
                 }
-
-                // Random rotation offset
                 mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-                
                 mainGroup.add(mesh);
                 particles.push(new Particle(mesh, i, CONFIG.particleCount));
             }
-
-            // 2. Star Dust (The "Galaxy" look)
+            
+            // Dust
             const dustGeo = new THREE.BufferGeometry();
             const pos = [];
-            const sizes = [];
-            for(let i=0; i<CONFIG.dustCount; i++) {
-                pos.push((Math.random()-0.5)*150, (Math.random()-0.5)*150, (Math.random()-0.5)*150);
-                sizes.push(Math.random());
-            }
+            for(let i=0; i<CONFIG.dustCount; i++) pos.push((Math.random()-0.5)*150, (Math.random()-0.5)*150, (Math.random()-0.5)*150);
             dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            dustGeo.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
-            
-            const dustMat = new THREE.PointsMaterial({
-                color: 0xffffff,
-                size: 0.3,
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending
-            });
-            const starSystem = new THREE.Points(dustGeo, dustMat);
-            scene.add(starSystem);
+            const dustMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.3, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending});
+            scene.add(new THREE.Points(dustGeo, dustMat));
         }
 
+        // --- [NEW] PHOTO CREATION (FIXED) ---
         function createPhotoMesh(tex) {
             const g = new THREE.Group();
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.6, 0.1), matGold);
-            const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2.4), new THREE.MeshBasicMaterial({ map: tex }));
-            plane.position.z = 0.06;
+            
+            // Frame
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.8, 0.1), matGold);
             g.add(frame);
+
+            // Photo - Using BasicMaterial so lighting doesn't darken it
+            // DoubleSide ensures it's visible even if rotated back
+            const picMat = new THREE.MeshBasicMaterial({ 
+                map: tex, 
+                side: THREE.DoubleSide 
+            });
+            const plane = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.6), picMat);
+            plane.position.z = 0.06; // Slightly in front
             g.add(plane);
+            
             return g;
         }
 
@@ -603,120 +552,26 @@
                     mesh.userData.isPhoto = true;
                     mainGroup.add(mesh);
                     
-                    // Replace a random particle with this photo
                     const idx = Math.floor(Math.random() * particles.length);
                     mainGroup.remove(particles[idx].mesh);
                     particles[idx].mesh = mesh;
                     photos.push(mesh);
                     
-                    // Flash effect
-                    const flash = new THREE.PointLight(0xffffff, 20, 20);
-                    flash.position.copy(particles[idx].targetPos);
-                    scene.add(flash);
-                    setTimeout(() => scene.remove(flash), 150);
+                    // Trigger Focus Mode
+                    STATE.targetPhoto = mesh;
+                    STATE.mode = 'FOCUS';
+                    
+                    // Reset to Tree after 5 seconds
+                    setTimeout(() => { if(STATE.mode === 'FOCUS') STATE.mode = 'TREE'; }, 5000);
                 });
             }
             reader.readAsDataURL(f);
         });
 
-        window.addEventListener('keydown', (e) => {
-            if(e.key.toLowerCase() === 'h') {
-                document.getElementById('ui-layer').classList.toggle('ui-hidden');
-            }
-        });
-
-        // --- COMPUTER VISION SETUP ---
-        let handLandmarker;
-        const video = document.getElementById('webcam');
-
-        async function initCV() {
-            try {
-                const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-                handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                    baseOptions: {
-                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                        delegate: "GPU"
-                    },
-                    runningMode: "VIDEO",
-                    numHands: 1
-                });
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                video.addEventListener("loadeddata", predict);
-            } catch (err) {
-                console.warn("CV Init Failed (Check Localhost/HTTPS):", err);
-            }
-        }
-
-        let lastTime = -1;
-        async function predict() {
-            if (video.currentTime !== lastTime) {
-                lastTime = video.currentTime;
-                const result = handLandmarker.detectForVideo(video, performance.now());
-                if(result.landmarks && result.landmarks.length > 0) {
-                    handleGestures(result.landmarks[0]);
-                }
-            }
-            requestAnimationFrame(predict);
-        }
-
-        function handleGestures(lm) {
-            // Mapping Hand position to Rotation
-            const palm = lm[9];
-            STATE.handRotation.y = (palm.x - 0.5) * 3; 
-            STATE.handRotation.x = (palm.y - 0.5) * 3;
-
-            // Gestures
-            const thumb = lm[4];
-            const index = lm[8];
-            const wrist = lm[0];
-            
-            // 1. PINCH -> FOCUS
-            if (Math.hypot(thumb.x - index.x, thumb.y - index.y) < 0.05) {
-                if(STATE.mode !== 'FOCUS') {
-                    STATE.mode = 'FOCUS';
-                    STATE.targetPhoto = photos.length ? photos[Math.floor(Math.random()*photos.length)] : null;
-                }
-            }
-            // 2. FIST -> TREE
-            else if (Math.hypot(lm[12].x-wrist.x, lm[12].y-wrist.y) < 0.25) {
-                STATE.mode = 'TREE';
-            }
-            // 3. OPEN -> SCATTER
-            else if (Math.hypot(lm[12].x-wrist.x, lm[12].y-wrist.y) > 0.45) {
-                STATE.mode = 'SCATTER';
-            }
-        }
-
-        // --- ANIMATION LOOP ---
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if(!STATE.isPlaying) return;
-
-            const time = clock.getElapsedTime();
-
-            // Rotate Main Group (Auto + Hand influence)
-            const autoRot = STATE.mode === 'TREE' ? time * 0.1 : time * 0.05;
-            mainGroup.rotation.y = THREE.MathUtils.lerp(mainGroup.rotation.y, autoRot + STATE.handRotation.y, 0.05);
-            mainGroup.rotation.x = THREE.MathUtils.lerp(mainGroup.rotation.x, STATE.handRotation.x * 0.5, 0.05);
-
-            // Update particles
-            particles.forEach(p => p.update(STATE.mode, time));
-
-            // Move Light with Camera/Time to create dynamic shadows
-            coreLight.intensity = 2 + Math.sin(time*3)*0.5;
-
-            composer.render();
-        }
-
         // --- START SEQUENCE ---
         const startBtn = document.getElementById('start-btn');
         const loaderText = document.getElementById('loading-text');
 
-        // Initial loading simulation
         setTimeout(() => {
             loaderText.style.display = 'none';
             document.querySelector('.loader-ring').style.display = 'none';
@@ -728,23 +583,79 @@
             document.getElementById('start-screen').style.opacity = 0;
             setTimeout(() => document.getElementById('start-screen').remove(), 1000);
             
+            // Show main UI
+            document.getElementById('ui-layer').classList.add('ui-visible');
+            document.getElementById('ui-toggle-btn').style.display = 'flex'; // Show toggle btn
+
             STATE.isPlaying = true;
+            audio.play().catch(e => console.log("Audio play failed, user interaction needed first"));
             
-            // --- AUTO PLAY MUSIC LOGIC (FIXED) ---
-            // Trigger playback on user interaction (click)
-            audio.volume = 0.5;
-            audio.play().then(() => {
-                console.log("Music started successfully!");
-                document.getElementById('music-toggle').style.opacity = '1';
-            }).catch(e => {
-                console.warn("Autoplay blocked:", e);
-            });
-            
-            initCV(); // Start Camera
+            initCV(); 
             animate();
         });
 
-        // Resize
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!STATE.isPlaying) return;
+
+            const time = clock.getElapsedTime();
+
+            mainGroup.rotation.y = THREE.MathUtils.lerp(mainGroup.rotation.y, (time * 0.1) + STATE.handRotation.y, 0.05);
+            mainGroup.rotation.x = THREE.MathUtils.lerp(mainGroup.rotation.x, STATE.handRotation.x * 0.5, 0.05);
+
+            particles.forEach(p => p.update(STATE.mode, time));
+            coreLight.intensity = 2 + Math.sin(time*3)*0.5;
+
+            composer.render();
+        }
+
+        // --- COMPUTER VISION ---
+        let handLandmarker;
+        const video = document.getElementById('webcam');
+
+        async function initCV() {
+            try {
+                // Mobile constraint check
+                const constraints = { video: { facingMode: "user" } };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                
+                const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
+                    runningMode: "VIDEO", numHands: 1
+                });
+                
+                video.addEventListener("loadeddata", predict);
+            } catch (err) { console.warn("CV Init Failed:", err); }
+        }
+
+        let lastTime = -1;
+        async function predict() {
+            if (video.currentTime !== lastTime) {
+                lastTime = video.currentTime;
+                const result = handLandmarker.detectForVideo(video, performance.now());
+                if(result.landmarks && result.landmarks.length > 0) {
+                    const lm = result.landmarks[0];
+                    const palm = lm[9];
+                    STATE.handRotation.y = (palm.x - 0.5) * 3; 
+                    STATE.handRotation.x = (palm.y - 0.5) * 3;
+
+                    const thumb = lm[4], index = lm[8], wrist = lm[0];
+                    if (Math.hypot(thumb.x - index.x, thumb.y - index.y) < 0.05) {
+                        if(STATE.mode !== 'FOCUS') {
+                            STATE.mode = 'FOCUS';
+                            STATE.targetPhoto = photos.length ? photos[Math.floor(Math.random()*photos.length)] : null;
+                        }
+                    } else if (Math.hypot(lm[12].x-wrist.x, lm[12].y-wrist.y) < 0.25) STATE.mode = 'TREE';
+                    else if (Math.hypot(lm[12].x-wrist.x, lm[12].y-wrist.y) > 0.45) STATE.mode = 'SCATTER';
+                }
+            }
+            requestAnimationFrame(predict);
+        }
+
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
